@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Architecture - Microservices Design</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --domain-color: #d1fae5;
+            --domain-border: #10b981;
+            --domain-border-hover: #047857;
+            --non-domain-color: #ede9fe;
+            --non-domain-border: #8b5cf6;
+            --non-domain-border-hover: #6d28d9;
+            --gateway-color: #fee2e2;
+            --gateway-border: #ef4444;
+            --gateway-border-hover: #b91c1c;
+            --event-color: #fcf3f9;
+            --event-border: #ec4899;
+            --event-border-hover: #be185d;
+            --database-color: #fef3c7;
+            --database-border: #f59e0b;
+            --database-border-hover: #d97706;
+            --client-color: #e0f2fe;
+            --client-border: #0ea5e9;
+            --client-border-hover: #0369a1;
+            --rest-color: #ef4444;
+            --grpc-color: #6366f1;
+            --event-flow-color: #ec4899;
+            --data-access-color: #4f46e5;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --bg: #ffffff;
+            --layer-bg: #f9fafb;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text);
+            line-height: 1.6;
+            background: var(--bg);
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+        
+        header p {
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+        
+        .diagram-container {
+            background-color: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            position: relative;
+            overflow: auto;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .diagram {
+            position: relative;
+            min-height: 880px;
+            min-width: 1200px;
+        }
+        
+        /* Layer styling */
+        .layer {
+            position: absolute;
+            width: 95%;
+            left: 2.5%;
+            background-color: var(--layer-bg);
+            border-radius: 10px;
+            padding: 10px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .layer-client {
+            top: 20px;
+            height: 120px;
+        }
+        
+        .layer-gateway {
+            top: 160px;
+            height: 120px;
+        }
+        
+        .layer-service {
+            top: 300px;
+            height: 150px;
+        }
+        
+        .layer-event {
+            top: 470px;
+            height: 120px;
+        }
+        
+        .layer-data {
+            top: 610px;
+            height: 150px;
+        }
+        
+        /* Layer labels */
+        .layer-label {
+            position: absolute;
+            left: 20px;
+            font-size: 0.95rem;
+            color: var(--text);
+            font-weight: 600;
+            background-color: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 3px 8px;
+            z-index: 10;
+        }
+        
+        /* Boxes */
+        .box {
+            position: absolute;
+            border-radius: 6px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            transition: all 0.2s ease;
+            z-index: 5;
+        }
+        
+        .box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .box h3 {
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .box p {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+        
+        .client-box {
+            background-color: var(--client-color);
+            border: 1px solid var(--client-border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .client-box:hover {
+            border-color: var(--client-border-hover);
+        }
+        
+        .gateway-box {
+            background-color: var(--gateway-color);
+            border: 1px solid var(--gateway-border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .gateway-box:hover {
+            border-color: var(--gateway-border-hover);
+        }
+        
+        .domain-box {
+            background-color: var(--domain-color);
+            border: 1px solid var(--domain-border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .domain-box:hover {
+            border-color: var(--domain-border-hover);
+        }
+        
+        .non-domain-box {
+            background-color: var(--non-domain-color);
+            border: 1px solid var(--non-domain-border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .non-domain-box:hover {
+            border-color: var(--non-domain-border-hover);
+        }
+        
+        .event-box {
+            background-color: var(--event-color);
+            border: 1px solid var(--event-border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .event-box:hover {
+            border-color: var(--event-border-hover);
+        }
+        
+        /* Database cylinder */
+        .database {
+            position: absolute;
+            background-color: var(--database-color);
+            border: 1px solid var(--database-border);
+            border-radius: 10px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+            z-index: 5;
+        }
+        
+        .database:hover {
+            border-color: var(--database-border-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .database::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: 0;
+            right: 0;
+            height: 10px;
+            background-color: var(--database-color);
+            border: 1px solid var(--database-border);
+            border-bottom: none;
+            border-radius: 10px 10px 0 0;
+        }
+        
+        .database:hover::before {
+            border-color: var(--database-border-hover);
+        }
+        
+        .database::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            right: 0;
+            height: 10px;
+            background-color: var(--database-color);
+            border: 1px solid var(--database-border);
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+        }
+        
+        .database:hover::after {
+            border-color: var(--database-border-hover);
+        }
+        
+        .database h3 {
+            font-size: 0.95rem;
+            margin: 10px 0 5px;
+            font-weight: 600;
+        }
+        
+        .database p {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-bottom: 15px;
+        }
+        
+        /* Connectors */
+        .connector {
+            position: absolute;
+            height: 2px;
+            transform-origin: 0 0;
+            z-index: 1;
+        }
+        
+        .rest-connector {
+            background-color: var(--rest-color);
+        }
+        
+        .grpc-connector {
+            background-color: var(--grpc-color);
+        }
+        
+        .event-connector {
+            border-top: 2px dashed var(--event-flow-color);
+            background-color: transparent;
+        }
+        
+        .data-connector {
+            background-color: var(--data-access-color);
+        }
+        
+        /* Arrow heads */
+        .arrow-head {
+            position: absolute;
+            width: 0;
+            height: 0;
+            z-index: 2;
+        }
+        
+        .rest-arrow {
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 10px solid var(--rest-color);
+        }
+        
+        .grpc-arrow {
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 10px solid var(--grpc-color);
+        }
+        
+        .event-arrow {
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 10px solid var(--event-flow-color);
+        }
+        
+        .data-arrow {
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 10px solid var(--data-access-color);
+        }
+        
+        /* Connection labels */
+        .connector-label {
+            position: absolute;
+            background: white;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            border: 1px solid #e5e7eb;
+            font-weight: 500;
+            z-index: 3;
+        }
+        
+        .rest-label {
+            color: var(--rest-color);
+            border-color: var(--rest-color);
+        }
+        
+        .grpc-label {
+            color: var(--grpc-color);
+            border-color: var(--grpc-color);
+        }
+        
+        .event-label {
+            color: var(--event-flow-color);
+            border-color: var(--event-flow-color);
+        }
+        
+        .data-label {
+            color: var(--data-access-color);
+            border-color: var(--data-access-color);
+        }
+        
+        /* Legend styles */
+        .legend-container {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background-color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .legend-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text);
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 8px;
+        }
+        
+        .legend-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+        
+        .legend-line {
+            width: 30px;
+            height: 2px;
+            margin-right: 8px;
+        }
+        
+        .legend-text {
+            font-size: 0.85rem;
+            color: var(--text);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>System Architecture - Microservices Design</h1>
+            <p>Event-Driven Architecture with Domain and Non-Domain Services</p>
+        </header>
+        
+        <div class="diagram-container">
+            <div class="diagram">
+                <!-- Layers -->
+                <div class="layer layer-client"></div>
+                <div class="layer layer-gateway"></div>
+                <div class="layer layer-service"></div>
+                <div class="layer layer-event"></div>
+                <div class="layer layer-data"></div>
+                
+                <!-- Layer labels -->
+                <div class="layer-label" style="top: 30px;">Client Layer</div>
+                <div class="layer-label" style="top: 170px;">Gateway Layer</div>
+                <div class="layer-label" style="top: 310px;">Service Layer</div>
+                <div class="layer-label" style="top: 480px;">Event Bus</div>
+                <div class="layer-label" style="top: 620px;">Data Layer</div>
+                
+                <!-- Client Layer -->
+                <div class="box client-box" style="left: 350px; top: 50px; width: 180px; height: 80px;">
+                    <h3>Web Clients</h3>
+                    <p>Browser Applications</p>
+                </div>
+                
+                <div class="box client-box" style="left: 650px; top: 50px; width: 180px; height: 80px;">
+                    <h3>Mobile Clients</h3>
+                    <p>Native Applications</p>
+                </div>
+                
+                <!-- Client to Gateway connections -->
+                <div class="connector rest-connector" style="left: 410px; top: 130px; width: 50px; transform: rotate(90deg);"></div>
+                <div class="arrow-head rest-arrow" style="left: 410px; top: 180px; transform: rotate(0deg);"></div>
+                <div class="connector-label rest-label" style="left: 380px; top: 145px;">REST</div>
+                
+                <div class="connector grpc-connector" style="left: 710px; top: 130px; width: 50px; transform: rotate(90deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 710px; top: 180px; transform: rotate(0deg);"></div>
+                <div class="connector-label grpc-label" style="left: 740px; top: 145px;">gRPC</div>
+                
+                <!-- Gateway layer -->
+                <div class="box gateway-box" style="left: 350px; top: 180px; width: 180px; height: 80px;">
+                    <h3>REST API Gateway</h3>
+                    <p>HTTP/JSON</p>
+                </div>
+                
+                <div class="box gateway-box" style="left: 650px; top: 180px; width: 180px; height: 80px;">
+                    <h3>gRPC API Gateway</h3>
+                    <p>Protocol Buffers</p>
+                </div>
+                
+                <!-- Domain services -->
+                <div class="box domain-box" style="left: 200px; top: 320px; width: 180px; height: 100px;">
+                    <h3>User Management</h3>
+                    <p>Domain Service</p>
+                </div>
+                
+                <div class="box domain-box" style="left: 400px; top: 320px; width: 180px; height: 100px;">
+                    <h3>Project Management</h3>
+                    <p>Domain Service</p>
+                </div>
+                
+                <div class="box domain-box" style="left: 600px; top: 320px; width: 180px; height: 100px;">
+                    <h3>Resource Management</h3>
+                    <p>Domain Service</p>
+                </div>
+                
+                <!-- Non-domain services -->
+                <div class="box non-domain-box" style="left: 840px; top: 310px; width: 180px; height: 80px;">
+                    <h3>Observability Service</h3>
+                    <p>LGTM Stack</p>
+                </div>
+                
+                <div class="box non-domain-box" style="left: 1050px; top: 310px; width: 180px; height: 80px;">
+                    <h3>Config Service</h3>
+                    <p>etcd + Webhooks</p>
+                </div>
+                
+                <div class="box non-domain-box" style="left: 840px; top: 400px; width: 180px; height: 80px;">
+                    <h3>Cache Service</h3>
+                    <p>Redis</p>
+                </div>
+                
+                <div class="box non-domain-box" style="left: 1050px; top: 400px; width: 180px; height: 80px;">
+                    <h3>Audit Service</h3>
+                    <p>System-wide logging</p>
+                </div>
+                
+                <!-- Event bus -->
+                <div class="box event-box" style="left: 500px; top: 500px; width: 300px; height: 80px;">
+                    <h3>Messaging Service (Kafka Clusters)</h3>
+                    <p>Event-driven communication</p>
+                </div>
+                
+                <!-- Databases -->
+                <div class="database" style="left: 300px; top: 640px; width: 180px; height: 90px;">
+                    <h3>YugabyteDB</h3>
+                    <p>Distributed SQL</p>
+                </div>
+                
+                <div class="database" style="left: 550px; top: 640px; width: 180px; height: 90px;">
+                    <h3>Apache Cassandra</h3>
+                    <p>NoSQL Database</p>
+                </div>
+                
+                <div class="database" style="left: 800px; top: 640px; width: 180px; height: 90px;">
+                    <h3>Redis</h3>
+                    <p>In-memory Cache</p>
+                </div>
+                
+                <!-- REST API Gateway connections -->
+                <!-- To User Management -->
+                <div class="connector rest-connector" style="left: 350px; top: 260px; width: 100px; transform: rotate(135deg);"></div>
+                <div class="arrow-head rest-arrow" style="left: 245px; top: 320px; transform: rotate(-45deg);"></div>
+                <div class="connector-label rest-label" style="left: 280px; top: 270px;">REST</div>
+                
+                <!-- To Project Management -->
+                <div class="connector rest-connector" style="left: 440px; top: 260px; width: 70px; transform: rotate(90deg);"></div>
+                <div class="arrow-head rest-arrow" style="left: 440px; top: 320px; transform: rotate(0deg);"></div>
+                <div class="connector-label rest-label" style="left: 445px; top: 280px;">REST</div>
+                
+                <!-- To Resource Management -->
+                <div class="connector rest-connector" style="left: 530px; top: 260px; width: 120px; transform: rotate(45deg);"></div>
+                <div class="arrow-head rest-arrow" style="left: 600px; top: 320px; transform: rotate(45deg);"></div>
+                <div class="connector-label rest-label" style="left: 550px; top: 270px;">REST</div>
+                
+                <!-- gRPC API Gateway connections -->
+                <!-- To Resource Management -->
+                <div class="connector grpc-connector" style="left: 680px; top: 260px; width: 80px; transform: rotate(135deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 650px; top: 320px; transform: rotate(-45deg);"></div>
+                <div class="connector-label grpc-label" style="left: 650px; top: 270px;">gRPC</div>
+                
+                <!-- To Observability Service -->
+                <div class="connector grpc-connector" style="left: 790px; top: 230px; width: 120px; transform: rotate(40deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 850px; top: 310px; transform: rotate(50deg);"></div>
+                <div class="connector-label grpc-label" style="left: 800px; top: 250px;">gRPC</div>
+                
+                <!-- To Cache Service -->
+                <div class="connector grpc-connector" style="left: 750px; top: 260px; width: 150px; transform: rotate(65deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 850px; top: 400px; transform: rotate(25deg);"></div>
+                <div class="connector-label grpc-label" style="left: 780px; top: 320px;">gRPC</div>
+                
+                <!-- REST API Gateway to Config Service -->
+                <div class="connector rest-connector" style="left: 530px; top: 200px; width: 520px; transform: rotate(10deg);"></div>
+                <div class="arrow-head rest-arrow" style="left: 1050px; top: 310px; transform: rotate(-80deg);"></div>
+                <div class="connector-label rest-label" style="left: 800px; top: 210px;">REST</div>
+                
+                <!-- REST API Gateway to Audit Service -->
+                <div class="connector rest-connector" style="left: 530px; top: 230px; width: 520px; transform: rotate(30deg);"></div>
+                <div class="arrow-head rest-arrow" style="left: 1050px; top: 400px; transform: rotate(60deg);"></div>
+                <div class="connector-label rest-label" style="left: 730px; top: 290px;">REST</div>
+                
+                <!-- Services to Event Bus connections -->
+                <!-- User Management to Event Bus -->
+                <div class="connector event-connector" style="left: 250px; top: 420px; width: 300px; transform: rotate(25deg);"></div>
+                <div class="arrow-head event-arrow" style="left: 500px; top: 500px; transform: rotate(65deg);"></div>
+                <div class="connector-label event-label" style="left: 350px; top: 450px;">Events</div>
+                
+                <!-- Project Management to Event Bus -->
+                <div class="connector event-connector" style="left: 480px; top: 420px; width: 100px; transform: rotate(70deg);"></div>
+                <div class="arrow-head event-arrow" style="left: 550px; top: 500px; transform: rotate(20deg);"></div>
+                <div class="connector-label event-label" style="left: 490px; top: 450px;">Events</div>
+                
+                <!-- Resource Management to Event Bus -->
+                <div class="connector event-connector" style="left: 650px; top: 420px; width: 100px; transform: rotate(110deg);"></div>
+                <div class="arrow-head event-arrow" style="left: 600px; top: 500px; transform: rotate(-20deg);"></div>
+                <div class="connector-label event-label" style="left: 610px; top: 450px;">Events</div>
+                
+                <!-- Non-domain services to Event Bus -->
+                <div class="connector event-connector" style="left: 850px; top: 460px; width: 300px; transform: rotate(155deg);"></div>
+                <div class="arrow-head event-arrow" style="left: 650px; top: 500px; transform: rotate(-65deg);"></div>
+                <div class="connector-label event-label" style="left: 730px; top: 465px;">Events</div>
+                
+                <!-- Services to Database connections -->
+                <!-- User Management to YugabyteDB -->
+                <div class="connector data-connector" style="left: 250px; top: 420px; width: 100px; transform: rotate(110deg);"></div>
+                <div class="arrow-head data-arrow" style="left: 320px; top: 640px; transform: rotate(-20deg);"></div>
+                <div class="connector-label data-label" style="left: 230px; top: 520px;">Data Access</div>
+                
+                <!-- Project Management to Cassandra -->
+                <div class="connector data-connector" style="left: 480px; top: 420px; width: 220px; transform: rotate(90deg);"></div>
+                <div class="arrow-head data-arrow" style="left: 580px; top: 640px; transform: rotate(0deg);"></div>
+                <div class="connector-label data-label" style="left: 490px; top: 520px;">Data Access</div>
+                
+                <!-- Resource Management to Redis -->
+                <div class="connector data-connector" style="left: 680px; top: 420px; width: 170px; transform: rotate(45deg);"></div>
+                <div class="arrow-head data-arrow" style="left: 800px; top: 640px; transform: rotate(45deg);"></div>
+                <div class="connector-label data-label" style="left: 720px; top: 520px;">Data Access</div>
+                
+                <!-- Cache Service to Redis -->
+                <div class="connector data-connector" style="left: 910px; top: 480px; width: 220px; transform: rotate(110deg);"></div>
+                <div class="arrow-head data-arrow" style="left: 850px; top: 640px; transform: rotate(-20deg);"></div>
+                <div class="connector-label data-label" style="left: 860px; top: 560px;">Data Access</div>
+            </div>
+        </div>
+        
+        <!-- Legend -->
+        <div class="legend-container">
+            <div class="legend-title">Legend</div>
+            <div class="legend-group">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--client-color); border: 1px solid var(--client-border);"></div>
+                    <span class="legend-text">Client Applications</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--gateway-color); border: 1px solid var(--gateway-border);"></div>
+                    <span class="legend-text">API Gateways</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--domain-color); border: 1px solid var(--domain-border);"></div>
+                    <span class="legend-text">Domain Services</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--non-domain-color); border: 1px solid var(--non-domain-border);"></div>
+                    <span class="legend-text">Non-Domain Services</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--event-color); border: 1px solid var(--event-border);"></div>
+                    <span class="legend-text">Event Bus</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--database-color); border: 1px solid var(--database-border);"></div>
+                    <span class="legend-text">Databases</span>
+                </div>
+            </div>
+            
+            <div class="legend-group">
+                <div class="legend-item">
+                    <div class="legend-line" style="background-color: var(--rest-color);"></div>
+                    <span class="legend-text">REST API</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-line" style="background-color: var(--grpc-color);"></div>
+                    <span class="legend-text">gRPC</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-line" style="border-top: 2px dashed var(--event-flow-color);"></div>
+                    <span class="legend-text">Event Flow</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-line" style="background-color: var(--data-access-color);"></div>
+                    <span class="legend-text">Data Access</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
