@@ -1,0 +1,1165 @@
+﻿Low-Level Design Document: NPS Subscriber SA/PE/IC Service
+
+1. Introduction
+This section sets the context for the LLD document.
+* Purpose of the System Software
+TThe purpose of this system is to enable a streamlined and secure withdrawal process from the National Pension System (NPS) under the categories of Superannuation, Premature Exit, and Incapacitation (rest we will keep adding). It coordinates with several critical services, including user profile validation, corpus eligibility assessment, annuity plan selection, document verification, and final consent through e-signature or OTP. The system is designed to ensure full compliance with regulatory guidelines and CRA (Central Recordkeeping Agency) requirements, while offering a user-friendly and guided experience for individuals exiting the NPS due to retirement, early withdrawal, or unforeseen incapacitation.
+* Scope of the LLD Document
+This Low-Level Design (LLD) document details the internal design, technical components, and workflows of the NPS Withdrawal Module for Superannuation , Premature Exit, Incapacitation flows. It covers the following:
+   * Selection of withdrawal category (Superannuation or Premature Exit or Incapacitation)
+   * Fetching user and nominee profile details via User Service
+   * Retrieving pre-generated or to be generated Claim ID from Receipt Service
+   * Calculating corpus amount and determining withdrawal eligibility logic specific to the withdrawal type
+   * Selection of annuity options and fund providers via Annuity Service, based on marital status and withdrawal category
+   * Fetching and verifying bank account details through Payment Gateway Service
+   * Uploading and validating supporting documents via Document Service, followed by bundling for CRA submission
+   * Triggering OTP via Notification Service after successful form submission
+   * Final CRA verification through either e-signature or OTP-based consent
+   * Generating Acknowledgement ID via Receipt Service upon successful submission to the CRA
+
+     In addition to the functional scope, this LLD also addresses:
+   * Modernization of the NPS withdrawal infrastructure using scalable and secure technologies
+   * Data protection and privacy, ensuring secure storage and transmission of personal, financial, and pension-related data
+   * API security and regulatory compliance, including encrypted communication, adherence to PFRDA and CRA mandates, and robust access control mechanisms
+
+
+   * References
+
+      * User Service API Documentation
+
+      * Annuity Service API Documentation
+
+      * Notification Service (SMS/OTP) Documentation
+
+      * Document Handling & CRA Integration Guidelines
+
+      * Penny-drop Payment Gateway Integration Docs
+
+      * CRA Compliance Protocols for Exit Management
+
+
+________________
+
+
+2. System Architecture Overview
+This section provides a high-level view of the system to orient the reader before diving into detailed component designs.
+🔹 Description
+The diagram illustrates the Withdrawal Workflow System, where the Withdrawal Service (SA/PE) acts as the central orchestrator, coordinating with multiple microservices to process a user's withdrawal request. The key workflow steps are:
+🔁 Service Interactions
+         1. User Information Retrieval
+The Withdrawal Service interacts with the User Service to fetch subscriber details, including nominee information.
+
+         2. Claim ID Retrieval
+Communicates with the Receipt Service to retrieve and assign a unique Claim ID for the withdrawal transaction.
+
+         3. Eligibility Check
+Validates the subscriber's eligibility based on the selected withdrawal type (SA or PE) using the Rule Engine Service.
+
+         4. Fund Provider Details
+Retrieves applicable annuity options and fund provider details from the Fund Manager/Annuity Service, considering marital status and withdrawal type.
+
+         5. Bank Verification
+Integrates with the Payment Gateway Service (Pennydrop) to verify the user’s bank account details and status.
+
+         6. Document Validation
+Uploads, validates, and bundles KYC and supporting documents through the Document Service for subsequent CRA submission.
+
+         7. OTP Notification
+Triggers the Notification Service to send an OTP to the user’s registered mobile number upon form save or before consent.
+
+         8. Consent & CRA Communication
+After all validations are successful, the user provides final withdrawal consent using one of the following methods:
+            * OTP Verification
+            * e-KYC / e-Signature
+The bundled data is then submitted to the CRA (Central Recordkeeping Agency) to complete the withdrawal lifecycle.
+
+Diagram: [Link to Withdrawal (SA/PE) High Level Design]
+
+
+  
+ 
+________________
+
+
+🔹 Architectural Style
+Microservices Architecture
+The system follows a Domain-Driven Design (DDD) approach to define service boundaries clearly. Services are designed around Bounded Contexts such as:
+            * Subscriber Management
+
+            * Fund Provider Management
+
+            * Withdrawal Processing
+
+            * Document Handling
+
+            * Notifications
+
+Aggregates (domain-driven groupings of related data/logic) serve as the core of each microservice.
+Key Architectural Principles:
+               * Decentralized Services: Each service (User, Rule Engine, Fund Provider, etc.) independently handles its domain logic and owns its data.
+
+               * Orchestration Pattern: The Withdrawal Service coordinates the workflow for both SA and PE flows by invoking relevant services in sequence.
+
+               * Loose Coupling & Scalability: Services interact using well-defined contracts (APIs or events), making them independently deployable and scalable.
+
+               * Resilience & Flexibility: Each microservice can be maintained, upgraded, or scaled independently without impacting the overall system.
+
+
+
+
+
+________________
+
+
+🔹 Inter-Service Communication Strategy
+To ensure optimal performance and resilience, the system uses a hybrid communication strategy:
+✅ Synchronous Communication
+                  * gRPC
+
+                     * Used for high-performance, low-latency internal service-to-service communication.
+
+                     * Benefits: Small payloads via Protobuf, strong typing, schema-first design.
+
+                        * REST
+
+                           * Used for external-facing APIs (e.g., Point of Presence [PoP] systems, NPS subscriber portals).
+
+                           * Benefits: Simpler integration, broader compatibility, easier to test/debug.
+
+✅ Asynchronous / Event-Driven Communication
+                              * Message Broker (Kafka / Google Pub/Sub / NATS)
+ Enables decoupling between services and supports event-driven patterns.
+
+Use Cases:
+
+                                 * Event Notification
+ Services publish events like WithdrawalFormSubmitted, OTPVerified, or ConsentCaptured, which other services subscribe to.
+
+                                 * Saga Pattern
+ Orchestrates distributed transactions (e.g., for document validation and final submission) using event choreography.
+
+                                 * Load Leveling
+ Helps absorb spikes in request traffic (e.g., large-scale retirements) and maintain consistent performance.
+
+
+________________
+
+
+3. Component Designs
+3.1 Overview
+This section outlines the internal components involved in managing the NPS Withdrawal Workflow for both Superannuation (SA) and Premature Exit (PE), highlighting their responsibilities and interactions.
+
+
+3.1.1  Withdrawal Flow Manager
+Responsibilities:
+                                    * Manages the initiation of the withdrawal flow for both SA and PE categories.
+
+                                    * Presents options to the user for selecting the withdrawal type (Superannuation or Premature Exit).
+
+                                    * Validates the user's withdrawal initiation request based on eligibility rules specific to the selected category.
+
+                                    * Routes the workflow according to the selected withdrawal path (SA or PE).
+
+
+________________
+
+
+3.1.2  User Service Integration
+Responsibilities:
+                                       * Fetch comprehensive user data including profile, marital status, and nominee information.
+                                       * Pre-fill nominee details (if already available) to streamline the user experience.
+                                       * Perform validation checks to ensure the user's eligibility for SA or PE:
+                                       * SA: Check if the user has reached retirement age.
+                                       * PE: Check for early withdrawal conditions such as resignation, incapacitation, or completion of minimum vesting period.
+
+________________
+
+
+3.1.3  Receipt Service
+Responsibilities:
+                                          * Fetch a pre-generated Claim ID (typically generated 6 months prior to retirement in case of SA).
+                                          * For PE, ensure that the Claim ID generation is triggered upon withdrawal initiation. (TBD Flow)
+                                          * Validate that the Claim ID is uniquely associated with the user and withdrawal category.
+
+
+________________
+
+
+3.1.4 NPS Corpus Evaluation Engine
+Responsibilities:
+                                          * Retrieve the current corpus balance from the user’s NPS account.
+                                          * Evaluate withdrawal eligibility rules for SA based on corpus amount and selected exit type:
+                                          * If corpus <= ₹5 lakh, enable 100% withdrawal.
+                                          * If corpus >= ₹5 lakh, allow 60% withdrawal and mandate 40% annuitization (as per PFRDA rules).
+                                          * Evaluate withdrawal eligibility rules for PE based on corpus amount and selected exit type:
+                                          * If corpus <= 2.5 lakh, enable 100% withdrawal.
+                                          * If corpus >= 2.5 lakh, allow 20% withdrawal and mandate 80% annuitization (as per PFRDA rules).
+
+
+
+
+
+________________
+
+
+3.1.5 Fund Manager Service
+Responsibilities:
+                                          * Display annuity options (Monthly, Quarterly, Yearly) based on withdrawal type and user preferences.
+
+                                             * Applicable to both SA (Self Application) and PE (Pension Employer) flows.
+
+                                                * Fetch available annuity fund providers and schemes from the Fund Manager Service.
+
+                                                * Apply dynamic filters:
+
+                                                   * Based on marital status (e.g., unmarried individuals may have different eligible annuity options in PE).
+
+                                                   * Based on withdrawal type (e.g., full withdrawal, partial withdrawal with annuity, etc.).
+
+                                                      * Capture and save the user’s annuity preferences (selected scheme, frequency, provider) for final submission to the CRA.
+
+Relation to Flow:
+                                                         * Frontend (FE):
+
+                                                            * Fetches and displays annuity options and providers after the user selects marital status and withdrawal type.
+
+                                                            * Applies real-time filters based on input selections to narrow down valid options.
+
+                                                            * Collects the user’s final annuity selection and prepares it for submission.
+
+                                                               * Backend (BE):
+
+                                                                  * Calls the Fund Manager Service to get the list of eligible annuity schemes and providers.
+
+                                                                  * Saves the user’s selection to the database for use during CRA submission
+
+
+    
+
+________________
+
+
+3.1.6 Nominee Prefill Component
+Responsibilities:
+                                                                     * Check for existing nominee data in the user profile via the backend.
+                                                                     * If nominee data exists, pre-fill the nominee section in the UI (frontend).
+                                                                     * Allow users to modify nominee details if a nominee has already been pre-registered.
+                                                                     * Ensure consistent nominee handling for both Self Application (SA) and Pension Employer (PE) flows.
+Backend (BE):
+                                                                     * Exposes an API to fetch existing nominee details based on the user ID or application reference.
+                                                                     * Provides pre-registered nominee data if available.
+
+
+Applicable to both SA and PE to ensure consistent nominee handling.
+________________
+
+
+3.1.7 Bank Account Verification Module
+Responsibilities:
+                                                                     * Fetch registered bank account details from the user profile during the withdrawal process.
+
+                                                                     * Verify the bank account status using the PennyDrop service, integrated through the Payment Gateway Service.
+
+                                                                     * Ensure the bank account is active and valid before proceeding with the final submission and disbursement.
+
+                                                                     * Applicable to both SA (Self Application) and PE (Pension Employer) flows to maintain consistency in payout readiness.
+
+Relation to Flow:
+                                                                        * Backend (BE):
+
+                                                                           * Upon loading user details, the system retrieves bank account info from the User Service.
+
+                                                                           * The Payment Gateway Service performs PennyDrop verification (e.g., sends a small amount to the account and checks for confirmation).
+
+                                                                           * Only if the bank status is verified as active, the system allows further progress.
+
+                                                                              * Frontend (FE):
+
+                                                                                 * Displays bank account details fetched from the backend (read-only or editable based on flow).
+
+                                                                                 * Shows the verification status of the bank account.
+
+                                                                                 * Informs the user if re-verification or correction is required.
+
+
+________________
+
+
+3.1.8 Document Upload & Validation Service
+Responsibilities:
+                                                                                    * Allow users to upload required KYC and supporting documents based on the application type:
+
+                                                                                       * SA (Self Application): Retirement proof, PAN card, address proof.
+
+                                                                                       * PE (Pension Employer): Address proof, and other employer-submitted documents.
+
+                                                                                          * Validate uploaded documents for:
+
+                                                                                             * Type (e.g., PDF, JPEG, PNG)
+
+                                                                                             * Size (within allowable limits)
+
+                                                                                             * Format (ensuring compatibility and legibility)
+
+                                                                                                * Bundle all validated documents into a single PDF using the Document Service, which is then prepared for submission to the CRA.
+
+Relation to Flow:
+                                                                                                   * Frontend (FE):
+
+                                                                                                      * Users upload required documents through the form interface.
+
+                                                                                                      * Instant feedback is provided for any validation errors (type, size, format).
+
+                                                                                                      * Shows preview or confirmation for successful uploads.
+
+                                                                                                         * Backend (BE):
+
+                                                                                                            * Performs server-side validation to ensure compliance.
+
+                                                                                                            * Sends all validated documents to the Document Service, which merges them into a single PDF.
+
+                                                                                                            * This combined document is forwarded to CRA during final submission.
+
+________________
+
+
+3.1.9 Notification Manager Service
+Responsibilities:
+                                                                                                               * Trigger SMS with OTP to the user’s registered mobile number during critical operations (e.g., final save of withdrawal details).
+
+                                                                                                               * Manage the OTP verification process, including generation, sending, and validation.
+
+                                                                                                               * Ensure continuation only after successful OTP validation, adding a security layer to sensitive actions.
+
+Relation to Flow:
+                                                                                                                  * Backend (BE):
+
+                                                                                                                     * During the final submission of withdrawal details, the Notification Manager Service is triggered internally.
+
+                                                                                                                     * It fetches the necessary user information (e.g., mobile number) from the User Service without requiring additional input from the frontend.
+
+                                                                                                                     * Sends the OTP via SMS to the registered number and waits for verification.
+
+                                                                                                                        * Frontend (FE):
+
+                                                                                                                           * Prompts the user to enter the received OTP.
+
+                                                                                                                           * Submits the entered OTP for validation.
+
+                                                                                                                           * Proceeds to finalize and confirm the withdrawal only if the OTP is successfully validated by the Notification Service.
+
+
+________________
+
+
+3.1.10 Acknowledgement & Final Submission Module
+Responsibilities:
+                                                                                                                              * Generate Acknowledgement ID after successful OTP verification, serving as a reference for the completed withdrawal request.
+
+                                                                                                                              * Store the final submission as a valid request in the system for CRA (Central Recordkeeping Agency) verification.
+
+                                                                                                                              * Ensure full support for both SA (Self Application) and PE (Pension Employer) exit flows, enabling proper audit trails and request tracking.
+
+Relation to Flow:
+                                                                                                                                 * Backend (BE):
+
+                                                                                                                                    * Once the user successfully submits the OTP (validated by the Notification Manager Service), the backend internally triggers the Receipt Service.
+
+                                                                                                                                    * The Receipt Service generates the Acknowledgement ID.
+
+                                                                                                                                    * The final submission, along with this ID, is stored as a complete, verifiable request.
+
+                                                                                                                                    * This data is also made available for CRA verification or audit purposes.
+
+                                                                                                                                       * Frontend (FE):
+
+                                                                                                                                          * Displays the Acknowledgement ID to the user after successful OTP verification.
+
+                                                                                                                                          * Confirms that the withdrawal request has been finalized and submitted.
+
+                                                                                                                                          * Optionally allows the user to download or view the receipt tied to the Acknowledgement ID.
+
+
+________________
+
+
+3.1.11 CRA Exit Request Module
+Responsibilities:
+                                                                                                                                             * Initiate the exit request from NPS via the CRA platform.
+                                                                                                                                             * Provide the user with 2 authentication options:
+
+                                                                                                                                                * E-sign
+
+                                                                                                                                                * OTP Verification
+
+                                                                                                                                                   * Submit the final request to CRA after verification.
+                                                                                                                                                   * Log the CRA submission status for both SA and PE flows.
+________________
+
+
+3.2 Interfaces
+                                                                                                                                                   * Provided Interfaces: 
+        Error Code in CRA Error Code in API  Error Descri...
+                                                                                                                                                   1.  Get Withdrawal Types
+Endpoint: GET /api/v1/withdrawal-types
+Headers:Authorization: Bearer <Token>
+Logic: Validate the token and return eligible withdrawal types based on PRAN ID and account status.
+Response:
+{
+  "status": "success",
+  "message": "Withdrawal types fetched successfully.",
+  "data": [
+    {
+      "typeId": "WT001",
+      "typeName": "Full Withdrawal"
+    },
+    {
+      "typeId": "WT002",
+      "typeName": "Partial Withdrawal"
+    },
+    {
+      "typeId": "WT003",
+      "typeName": "Premature Exit"
+    }
+  ]
+}
+________________
+
+
+                                                                                                                                                   2. Initiate Withdrawal
+Endpoint: GET /api/v1/withdrawal/initiate?include=
+Headers: Authorization: Bearer <Token>
+Parameters: bank-details,nominee,basic-details
+Purpose: To fetch the withdrawal details for a particular PRAN subscriber and validate their eligibility.
+Success Response (200 OK):
+{
+  "status": "success",
+  "message": "User details fetched successfully.",
+  "data": [
+{
+  "fieldErrors": null,
+  "wdrSubType": "Lump-Sum and ASP Withdrawal",
+  "subwdrtype1": "Deferred Withdrawal",
+  "difftype1": "Deferred lump-sum withdrawal",
+  "wdrDueTo": "Superannuation",
+  "wdrSubType1": "Lump-Sum and ASP Withdrawal",
+  "subscriberName": "KAMIL SD DAS",
+  "bankName": "STATE BANK OF INDIA",
+  "bankBranch": "KOLKATA MAIN",
+  "mobileNo": "7666455594",
+  "email": "QK_AnishaK@nsdl.co.in",
+  "pan": "ASDPR1234T",
+  "claimId": "1710400036",
+  "dateOfBirth": "01/01/1956",
+  "dateOfRetirement": "31/12/9999",
+  "percentage_withdrawal": 40,
+  "percentage_annuity": 60,
+  "totalAmt": "2006.85",
+  "totalAmtT2": null,
+  "totalAmtBuzDate": "2006.85",
+  "aspAmt": "1204.11",
+  "wdrAmt": "802.74",
+  "navDate": "04/01/2021",
+  "marriedStatus": "Y",
+  "aspPensFreq": "M,Q,H,A",
+  "aspBenfName": null,
+  "aspBenfRelation": null,
+  "receiptNoType": "O",
+  "aspwdrRequestList": [
+    {
+      "aspId": "ASP002",
+      "aspName": "HDFC Life Insurance Co. Ltd",
+      "schemeWdrRequestList": [
+        { "schemeId": "AS003001", "schemeName": "Annuity for life" },
+        { "schemeId": "AS003002", "schemeName": "Annuity for life with return of purchase price on death" },
+        { "schemeId": "AS003003", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant" },
+        { "schemeId": "AS003004", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant with return on purchase of annuity" },
+        { "schemeId": "AS003005", "schemeName": "NPS - Family Income Option" }
+      ]
+    },
+    {
+      "aspId": "ASP003",
+      "aspName": "ICICI Life Insurance Co. Ltd",
+      "schemeWdrRequestList": [
+        { "schemeId": "AS003001", "schemeName": "Annuity for life" },
+        { "schemeId": "AS003002", "schemeName": "Annuity for life with return of purchase price on death" },
+        { "schemeId": "AS003003", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant" },
+        { "schemeId": "AS003004", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant with return on purchase of annuity" },
+        { "schemeId": "AS003005", "schemeName": "NPS - Family Income Option" }
+      ]
+    }
+  ]
+}
+]
+                        }
+________________
+
+
+                                                                                                                                                   3. Save Withdrawal Data
+Endpoint: POST /api/v1/withdrawal/save-data
+Headers: Authorization: Bearer <Token>
+Parameters: ["eligibility-check", "nominee-selection", "document-verification", “document-upload”]
+Purpose: To save the withdrawal form details for a particular PRAN subscriber.
+Success Response (200 OK): (Same as the Initiate API for confirmation)
+{
+  "status": "success",
+  "message": "Withdrawal data save successfully.",
+  "data": [
+{
+  "fieldErrors": null,
+  "wdrSubType": "Lump-Sum and ASP Withdrawal",
+  "subwdrtype1": "Deferred Withdrawal",
+  "difftype1": "Deferred lump-sum withdrawal",
+  "wdrDueTo": "Superannuation",
+  "wdrSubType1": "Lump-Sum and ASP Withdrawal",
+  "subscriberName": "KAMIL SD DAS",
+  "bankName": "STATE BANK OF INDIA",
+  "bankBranch": "KOLKATA MAIN",
+  "mobileNo": "7666455594",
+  "email": "QK_AnishaK@nsdl.co.in",
+  "pan": "ASDPR1234T",
+  "claimId": "1710400036",
+  "dateOfBirth": "01/01/1956",
+  "dateOfRetirement": "31/12/9999",
+  "percentage_withdrawal": 40,
+  "percentage_annuity": 60,
+  "totalAmt": "2006.85",
+  "totalAmtT2": null,
+  "totalAmtBuzDate": "2006.85",
+  "aspAmt": "1204.11",
+  "wdrAmt": "802.74",
+  "navDate": "04/01/2021",
+  "marriedStatus": "Y",
+  "aspPensFreq": "M,Q,H,A",
+  "aspBenfName": null,
+  "aspBenfRelation": null,
+  "receiptNoType": "O",
+  "aspwdrRequestList": [
+    {
+      "aspId": "ASP002",
+      "aspName": "HDFC Life Insurance Co. Ltd",
+      "schemeWdrRequestList": [
+        { "schemeId": "AS003001", "schemeName": "Annuity for life" },
+        { "schemeId": "AS003002", "schemeName": "Annuity for life with return of purchase price on death" },
+        { "schemeId": "AS003003", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant" },
+        { "schemeId": "AS003004", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant with return on purchase of annuity" },
+        { "schemeId": "AS003005", "schemeName": "NPS - Family Income Option" }
+      ]
+    },
+    {
+      "aspId": "ASP003",
+      "aspName": "ICICI Life Insurance Co. Ltd",
+      "schemeWdrRequestList": [
+        { "schemeId": "AS003001", "schemeName": "Annuity for life" },
+        { "schemeId": "AS003002", "schemeName": "Annuity for life with return of purchase price on death" },
+        { "schemeId": "AS003003", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant" },
+        { "schemeId": "AS003004", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant with return on purchase of annuity" },
+        { "schemeId": "AS003005", "schemeName": "NPS - Family Income Option" }
+      ]
+    }
+  ]
+}
+]
+}
+________________
+
+
+                                                                                                                                                   4.  Get Withdrawal Details
+
+
+Endpoint: GET /api/v1/withdrawal/form-details
+Headers:Authorization: Bearer <Token>
+Description: Retrieves all withdrawal form data previously submitted for the PRAN subscriber.
+Response:
+{
+{
+  "status": "success",
+  "message": "Withdrawal details get successfully.",
+  "data": [
+{
+  "fieldErrors": null,
+  "wdrSubType": "Lump-Sum and ASP Withdrawal",
+  "subwdrtype1": "Deferred Withdrawal",
+  "difftype1": "Deferred lump-sum withdrawal",
+  "wdrDueTo": "Superannuation",
+  "wdrSubType1": "Lump-Sum and ASP Withdrawal",
+  "subscriberName": "KAMIL SD DAS",
+  "bankName": "STATE BANK OF INDIA",
+  "bankBranch": "KOLKATA MAIN",
+  "mobileNo": "7666455594",
+  "email": "QK_AnishaK@nsdl.co.in",
+  "pan": "ASDPR1234T",
+  "claimId": "1710400036",
+  "dateOfBirth": "01/01/1956",
+  "dateOfRetirement": "31/12/9999",
+  "percentage_withdrawal": 40,
+  "percentage_annuity": 60,
+  "totalAmt": "2006.85",
+  "totalAmtT2": null,
+  "totalAmtBuzDate": "2006.85",
+  "aspAmt": "1204.11",
+  "wdrAmt": "802.74",
+  "navDate": "04/01/2021",
+  "marriedStatus": "Y",
+  "aspPensFreq": "M,Q,H,A",
+  "aspBenfName": null,
+  "aspBenfRelation": null,
+  "receiptNoType": "O",
+  "aspwdrRequestList": [
+    {
+      "aspId": "ASP002",
+      "aspName": "HDFC Life Insurance Co. Ltd",
+      "schemeWdrRequestList": [
+        { "schemeId": "AS003001", "schemeName": "Annuity for life" },
+        { "schemeId": "AS003002", "schemeName": "Annuity for life with return of purchase price on death" },
+        { "schemeId": "AS003003", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant" },
+        { "schemeId": "AS003004", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant with return on purchase of annuity" },
+        { "schemeId": "AS003005", "schemeName": "NPS - Family Income Option" }
+      ]
+    },
+    {
+      "aspId": "ASP003",
+      "aspName": "ICICI Life Insurance Co. Ltd",
+      "schemeWdrRequestList": [
+        { "schemeId": "AS003001", "schemeName": "Annuity for life" },
+        { "schemeId": "AS003002", "schemeName": "Annuity for life with return of purchase price on death" },
+        { "schemeId": "AS003003", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant" },
+        { "schemeId": "AS003004", "schemeName": "Annuity payable for life with 100% annuity payable to spouse on death of annuitant with return on purchase of annuity" },
+        { "schemeId": "AS003005", "schemeName": "NPS - Family Income Option" }
+      ]
+    }
+  ]
+}
+]
+}
+
+
+
+
+
+
+
+
+________________
+
+
+                                                                                                                                                   5. Send OTP
+Endpoint: POST /api/v1/withdrawal/send-otp
+Headers:Authorization: Bearer <Token>
+Parameters:phone
+Description:
+ Sends OTP to the registered mobile number or email for user verification.
+Response:
+{
+  "status": "success",
+  "message": "OTP sent successfully to the registered mobile number.",
+  "data": {
+    "pranId": "123456789012",
+    "otpTransactionId": "OTP202504101234",
+    "sentTo": "+919876543210",
+    "otpExpiry": "2025-04-10T15:35:00Z"
+  }
+}
+
+
+________________
+
+
+                                                                                                                                                   6. Verify OTP
+Endpoint: POST /api/v1/withdrawal/verify-otp
+Headers:Authorization: Bearer <Token>
+Parameters: pranId,otp,otpTransactionId
+Description: Validates the user-entered OTP and authorizes them to proceed.
+Response: Success or failure response confirming OTP verification.
+{
+  "status": "success",
+  "message": "OTP Verified successfully",
+  "data": {
+    "pranId": "123456789012",
+    "otpTransactionId": "OTP202504101234",
+    "sentTo": "+919876543210",
+    "otpExpiry": "2025-04-10T15:35:00Z"
+  }
+}
+
+
+Response fail:
+
+
+{
+  "status": "failed",
+  "message": "OTP Verification failed",
+  "error": {
+    "message": "OTP Verification failed for this xxxxxxxxxxxx",
+    "errorCode": "ER1001",
+     }
+}
+________________
+
+
+                                                                                                                                                   7. Annuity Providers
+Endpoint: GET /api/v1/withdrawal/annuity-providers
+Headers:Authorization: Bearer <Token>
+Description: Retrieves a list of available Annuity Service Providers (ASPs) and their annuity types.
+Response:
+{
+  "status": "success",
+  "message": "Annuity providers fetched successfully.",
+  "data": [
+    {
+      "aspId": "ASP001",
+      "aspName": "LIC Pension Plus",
+      "annuityTypes": ["Life Annuity", "Joint Life Annuity"]
+    },
+    {
+      "aspId": "ASP002",
+      "aspName": "SBI Life Annuity Plan",
+      "annuityTypes": ["Life Annuity with Return of Purchase Price"]
+    },
+    {
+      "aspId": "ASP003",
+      "aspName": "ICICI Prudential Guaranteed Pension",
+      "annuityTypes": ["Life Annuity", "Annuity for Life with ROP"]
+    }
+  ]
+}
+
+
+________________
+
+
+                                                                                                                                                   8. Cancel Withdrawal
+Endpoint: POST /api/v1/withdrawal/cancel
+Headers:Authorization: Bearer <Token>
+Parameters:pranId,claimId,reason
+Description:
+ Cancels an ongoing withdrawal request, provided it's still eligible for cancellation.
+⚠️ Verification methods such as OTP or e-signature may be required before final cancellation to ensure secure processing.
+Response:
+{
+  "status": "success",
+  "message": "Withdrawal request cancelled successfully.",
+  "data": {
+    "pranId": "123456789012",
+    "claimId": "CLM202504100001",
+    "cancellationStatus": "Cancelled",
+    "cancelledAt": "2025-04-10T16:00:00Z"
+  }
+}
+
+
+
+
+                                                                                                                                                   *  Required Interfaces: List the APIs or services this component depends on from other components (e.g., "Uses allocate_memory() from the Memory Manager").
+
+
+                                                                                                                                                   1.  Upload Document
+Endpoint: POST /api/v1/documents/upload
+Headers: Authorization: Bearer <Token>,Content-Type: multipart/form-data
+Logic:
+ Allows uploading of individual documents (e.g., KYC, address, bank proof) required for withdrawal.
+Payload (Form Data):user-id,documentType (e.g., Identity Proof, Address Proof, file (actual file)
+Response Example:
+{
+  "status": "success",
+  "message": "Document uploaded successfully.",
+  "data": {
+    "fileName": "pan_card.jpg",
+    "documentType": "Identity Proof",
+    "uploadStatus": "Uploaded"
+  }
+}
+
+
+________________
+
+
+                                                                                                                                                   2. Rule Engine
+Endpoint: POST /api/v1/rule-engine/evaluate
+Headers:Authorization: Bearer <Token>
+Logic: Validates user input against business rules and determines eligibility/status of the withdrawal.
+Payload:
+{
+  "pranId": "100085935326",
+  "withdrawalType": "Partial",
+  "documentsUploaded": true,
+  "otpVerified": true
+}
+Response Example: (TBD)
+
+
+{
+  "status": "success",
+  "result": "Eligible",
+  "ruleStatus": "PASSED"
+}
+
+
+________________
+
+
+                                                                                                                                                   3.  Payment Gateway (Penny-drop)
+Endpoint: GET /api/v1/payment/verify-bank
+Headers:Authorization: Bearer <Token>
+Logic:
+ Initiates the payment gateway flow for fund transfer or charges during withdrawal processing. It will get the user details from the token.
+
+
+Response Example:
+        (TBD)
+
+
+{
+  "status": "success",
+  "accountStatus": "active",
+  "verifiedAt": "2025-04-11T10:45:00Z"
+}
+
+
+
+
+________________
+
+
+                                                                                                                                                   4.  E-Sign and OTP (Doc + Notification Service)
+Endpoint:
+ POST /api/v1/e-sign/initiate
+Headers:Authorization: Bearer <Token>
+Logic: Triggers e-sign request and sends OTP for authentication using document and notification service.
+Payload:
+{
+  "pranId": "100085935326",
+  "documentId": "DOC987654",
+  "sendOtp": true
+}
+           Response Example:
+
+{
+  "status": "success",
+  "esignTransactionId": "ESIGN20250410",
+  "otpSentTo": "7666455594"
+}
+
+
+________________
+
+
+                                                                                                                                                   5. Fund Provider Service
+Endpoint: POST /api/v1/funds/release
+Headers:Authorization: Bearer <Token>
+Logic: Requests the fund provider to release the calculated withdrawal amount to the user.
+Payload:
+{
+  "pranId": "100085935326",
+  "amount": "2006.85",
+  "bankDetails": {
+    "accountNumber": "XXXXXX1234",
+    "ifsc": "SBIN0000001",
+    "bankName": "STATE BANK OF INDIA"
+  }
+}
+         Response Example:
+{
+  "status": "success",
+  "message": "Funds released successfully.",
+  "transactionRef": "TXN9876543210"
+}
+
+
+________________
+
+
+                                                                                                                                                   6. CRA Submit API
+Endpoint: POST /api/v1/cra/submit
+Headers:Authorization: Bearer <Token>
+Logic:
+ Submits the completed withdrawal request to the Central Recordkeeping Agency (CRA) for processing.
+Payload:
+{
+  "pranId": "100085935326",
+  "claimId": "CLM202504100001",
+  "documentsVerified": true,
+  "otpVerified": true,
+  "fundReleased": true
+}
+
+
+                     Response Example:
+                        (TBD)
+{
+  "status": "success",
+  "message": "Withdrawal submitted to CRA.",
+  "craAckId": "CRA202504109876"
+}
+
+
+________________
+
+
+                                                                                                                                                   7.  Receipt ID / Acknowledgement
+Endpoint: GET /api/v1/withdrawal/acknowledgement
+Headers:Authorization: Bearer <Token>
+Parameters: {pranId,claimId,transaction_type, date_of_c
+Body :{pranId:””,
+transaction_type:
+
+
+
+
+}
+Logic:
+ Returns receipt and acknowledgment information for tracking the withdrawal request.
+Response Example:
+{
+  "status": "success",
+  "data": {
+    "pranId": "100085935326",
+    "claimId": "CLM202504100001",
+    "acknowledgementId": "ACK20250410",
+    "submittedAt": "2025-04-10T16:30:00Z"
+  }
+}
+________________
+
+
+3.3 Internal Design
+Sub-components / Key Functions
+Function Name: initializeWithdrawalFlow
+                                                                                                                                                   * Description: Initializes the withdrawal process for a subscriber based on the type (superannuation or premature exit), setting up necessary context, validation rules, and data retrieval.
+
+                                                                                                                                                   * Parameters:
+
+                                                                                                                                                      * String subscriberId – Unique ID of the subscriber
+                                                                                                                                                      * WithdrawalType type – Enum indicating SUPERANNUATION or PREMATURE_EXIT
+
+                                                                                                                                                         * Return Values:
+
+                                                                                                                                                            * WithdrawalSessionContext – Contains all initialized session data
+                                                                                                                                                            * Returns error with appropriate status if initialization fails
+
+Algorithm/Pseudocode:
+                                                                                                                                                               * 1. Validate subscriberId and withdrawal type.
+                                                                                                                                                               * 2. Fetch the subscriber profile from the Subscriber Service.
+                                                                                                                                                               * 3. Load fund and contribution data.
+                                                                                                                                                               * 4. Determine eligibility based on withdrawal rules.
+                                                                                                                                                               * 5. Prepare annuity options (for superannuation).
+                                                                                                                                                               * 6. Generate a unique withdrawal session token.
+                                                                                                                                                               * 7. Return context to calling service/UI.
+
+
+                                                                                                                                                               * Data Structures Used:
+
+WithdrawalSessionContext {
+ String sessionId,
+ String subscriberId,
+ WithdrawalType type,
+ boolean isEligible,
+ FundDetails fundData,
+ List<AnnuityOption> annuityOptions,
+ List<DocumentRequirement> requiredDocuments
+}
+                                                                                                                                                                  * Concurrency and Synchronization:
+
+                                                                                                                                                                     * Uses thread-safe cache (e.g., Redis or in-memory map with locks) to store session data.
+                                                                                                                                                                     * Ensures session token uniqueness with atomic generation.
+
+
+
+                                                                                                                                                                        * Error Handling:
+
+                                                                                                                                                                           * Returns ERROR_INVALID_SUBSCRIBER if the subscriber ID is not found.
+                                                                                                                                                                           * Returns ERROR_ELIGIBILITY_FAILED if the subscriber does not qualify for withdrawal.
+                                                                                                                                                                           * Wraps external API failures (e.g., fund data) with retry and fallback logic.
+
+                                                                                                                                                                              * Performance Considerations:
+                                                                                                                                                                              * Uses async calls to retrieve fund and profile data in parallel.
+                                                                                                                                                                              * Caches frequently accessed master data like annuity schemes.
+
+                                                                                                                                                                                 * Portability Considerations:
+                                                                                                                                                                                 * Calls to CRA or Aadhaar APIs are abstracted via interfaces to allow mocking or replacement for testing/local deployments.
+
+________________
+
+
+Function Name: submitWithdrawalRequest
+                                                                                                                                                                                    * Description:
+ Finalizes the withdrawal flow and sends the request to the CRA (Central Recordkeeping Agency) gateway service after all validations and uploads are complete.
+
+                                                                                                                                                                                    * Parameters:
+                                                                                                                                                                                       * WithdrawalSessionContext sessionContext
+                                                                                                                                                                                       * List<Document> uploadedDocuments
+                                                                                                                                                                                       * AnnuitySelection annuityDetails (optional)
+
+                                                                                                                                                                                          * Return Values:
+                                                                                                                                                                                          * SubmissionStatus – Enum: SUCCESS, VALIDATION_FAILED, CRA_FAILURE, DUPLICATE_REQUEST
+                                                                                                                                                                                          * Algorithm/Pseudocode:
+                                                                                                                                                                                          1. Validate session context and uploaded documents.
+                                                                                                                                                                                          2. Perform KYC and nominee verification.
+                                                                                                                                                                                          3. Map internal fields to CRA-compliant format.
+                                                                                                                                                                                          4. Submit data to the CRA gateway.
+                                                                                                                                                                                          5. Log submission event in Kafka.
+                                                                                                                                                                                          6. Return final status to the UI.
+                                                                                                                                                                                          * Data Structures Used:
+CRARequest {
+  String subscriberId,
+  double fundAmount,
+  List<String> documentLinks,
+  AnnuitySelection annuityChoice
+}
+                                                                                                                                                                                          * Concurrency and Synchronization:
+                                                                                                                                                                                          * The submission queue is handled via Kafka to ensure idempotent processing.
+                                                                                                                                                                                          * The locking mechanism prevents duplicate submission for the same session ID.
+
+                                                                                                                                                                                             * Error Handling:
+                                                                                                                                                                                             * Retry mechanism on CRA timeouts or failures.
+                                                                                                                                                                                             * Emits events to the error Kafka topic for async alerting.
+
+                                                                                                                                                                                                * Performance Considerations:
+                                                                                                                                                                                                * Kafka queue decouples UI and CRA interaction latency.
+                                                                                                                                                                                                * Annuity mapping logic is optimized via lookups instead of if-else chains.
+
+                                                                                                                                                                                                   * Portability Considerations:
+- All CRA-related calls are behind an interface that can be mocked or stubbed for local/dev use.
+
+
+
+
+
+
+________________
+
+
+4. System Initialization
+This section outlines the startup process for the system software.
+                                                                                                                                                                                                   * Description: 
+Infrastructure Boot
+                                                                                                                                                                                                   * Start core system resources (CPU, memory allocation, network stack).
+                                                                                                                                                                                                   * Set environment-specific configuration values from .env or secret vaults.
+
+Microservices Deployment
+Deploy and initialize essential microservices in the defined startup order:
+
+                                                                                                                                                                                                      * Auth Service – for session and OTP verification.
+
+                                                                                                                                                                                                      * Subscriber Service – for profile and account data.
+
+                                                                                                                                                                                                      * Withdrawal Flow Service – orchestrates superannuation/premature exit.
+
+                                                                                                                                                                                                      * Document Service – handles uploads and validations.
+
+                                                                                                                                                                                                      * Notification Service – sends emails, SMS, or push notifications.
+
+                                                                                                                                                                                                      * CRA Gateway Service – connects to external CRA APIs.
+
+Database Activation
+                                                                                                                                                                                                         * Start database services (e.g., PostgreSQL, MongoDB).
+                                                                                                                                                                                                         * Run schema migrations and seed essential master data.
+                                                                                                                                                                                                         * Perform readiness checks using health probes.
+
+Kafka Initialization
+                                                                                                                                                                                                            * Start the Kafka broker and Zookeeper service.
+                                                                                                                                                                                                            * Create required Kafka topics (e.g., withdrawal-events, otp-verification, doc-uploads, cra-status).
+
+
+________________
+
+
+5. Appendices
+This section contains supplementary information.
+                                                                                                                                                                                                            * Additional Details: 
+6.1.1 Eligibility Evaluation Algorithm
+This algorithm evaluates if a subscriber is eligible for superannuation or premature exit based on their age, contribution history, and withdrawal type.
+MIN_CONTRIB = ₹1000 as per NPS rules.
+exitReason must be pre-defined (death, critical illness, job loss, etc.)
+
+
+                                                                                                                                                                                                            * Glossary: 
+This Low-Level Design outlines a robust and forward-looking architecture for National Pension System 2.0. By leveraging Go Fiber, YugabyteDB, Redis, Kubernetes, and GCP, the proposed system aims to deliver significant improvements in scalability, resilience, performance, and maintainability. The design explicitly addresses the critical requirement of backward compatibility with the existing IBM DB2 system through a controlled integration strategy (Strangler Fig, API Gateway) and manages the inherent complexities of distributed transactions using the Saga pattern. Security and compliance are addressed through a multi-layered, automated approach aligned with financial industry best practices and PFRDA guidelines. While the transition involves technical challenges, particularly around data consistency and legacy integration, this LLD provides a solid technical foundation for building a modern, reliable, and future-ready pension system for India. Successful implementation will require careful planning, rigorous testing, mature operational practices, and a phased rollout approach.
+________________
+
+
+Notes on Usage
+7.1 Customization
+This LLD template can be tailored to suit specific modules or services within the NPS system:
+                                                                                                                                                                                                            * Microservices such as WithdrawalFlowService, DocumentService, or AnnuityService should focus on:
+
+                                                                                                                                                                                                               * Internal logic flow
+
+                                                                                                                                                                                                               * API contracts
+
+                                                                                                                                                                                                               * Service orchestration
+
+                                                                                                                                                                                                               * Kafka event schemas
+
+                                                                                                                                                                                                               * Error handling mechanisms
+
+                                                                                                                                                                                                                  * Device Integration or Hardware-Level Modules (if any) should emphasize:
+
+                                                                                                                                                                                                                     * Hardware Interaction protocols
+
+                                                                                                                                                                                                                     * Security & authentication layers
+
+                                                                                                                                                                                                                     * Resource access and release patterns
+
+                                                                                                                                                                                                                        * Platform Services such as authentication, KYC validation, and notification services should document:
+
+                                                                                                                                                                                                                           * Token handling
+
+                                                                                                                                                                                                                           * Identity propagation
+
+                                                                                                                                                                                                                           * Async processing via Kafka or internal queues
+
+________________
+
+
+7.2 Diagrams
+To improve clarity and aid implementation:
+Link: Low Level Digram
+
+ER Digram
+  
+
+                                                                                                                                                                                                                              * Use UML Class Diagrams to show structure and relationships between key classes (e.g., WithdrawalSessionContext, AnnuityOption, DocumentMetadata).
+
+                                                                                                                                                                                                                              * Use Sequence Diagrams to represent:
+
+                                                                                                                                                                                                                                 * Subscriber interaction with microservices
+
+                                                                                                                                                                                                                                 * CRA submission flow
+
+                                                                                                                                                                                                                                 * Document upload and verification path
+
+                                                                                                                                                                                                                                    * Use Flowcharts to describe:
+
+                                                                                                                                                                                                                                       * Withdrawal initiation flow
+
+                                                                                                                                                                                                                                       * Eligibility evaluation logic
+
+                                                                                                                                                                                                                                       * OTP & KYC verification
+
+All diagrams should be placed in relevant sections such as:
+                                                                                                                                                                                                                                          * System Architecture Overview
+
+                                                                                                                                                                                                                                          * Interaction with Other Components
+
+                                                                                                                                                                                                                                          * Internal Design (for per-function flow)
+
+________________
+
+
+7.3 Focus of the LLD
+This LLD is implementation-focused. It aims to:
+                                                                                                                                                                                                                                             * Detail internal structures, algorithms, and service flows
+
+                                                                                                                                                                                                                                             * Capture interface-level logic between internal modules and microservices
+
+                                                                                                                                                                                                                                             * Support developers in writing modular, testable, and performant code
+
+It deliberately excludes:
+                                                                                                                                                                                                                                                * High-level component overviews (covered in the HLD)
+
+                                                                                                                                                                                                                                                * Business requirements (covered in BRD/FRD)
+
+                                                                                                                                                                                                                                                * API payload specifications (covered in OpenAPI / Swagger docs)
+
+                                                                                                                                                                                                                                                * External system contracts (documented in integration specs)

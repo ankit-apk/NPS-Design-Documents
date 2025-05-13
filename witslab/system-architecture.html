@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Architecture - Microservices Design</title>
+    <title>National Pension System v2.0 - System Architecture</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --domain-color: #d1fae5;
             --domain-border: #10b981;
             --domain-border-hover: #047857;
+            --subdomain-color: #ecfdf5;
+            --subdomain-border: #34d399;
+            --subdomain-border-hover: #059669;
             --non-domain-color: #ede9fe;
             --non-domain-border: #8b5cf6;
             --non-domain-border-hover: #6d28d9;
@@ -86,8 +89,8 @@
         
         .diagram {
             position: relative;
-            min-height: 880px;
-            min-width: 1200px;
+            min-height: 1250px;
+            min-width: 1300px;
         }
         
         /* Layer styling */
@@ -103,27 +106,27 @@
         
         .layer-client {
             top: 20px;
-            height: 120px;
+            height: 140px;
         }
         
         .layer-gateway {
-            top: 160px;
-            height: 120px;
+            top: 180px;
+            height: 140px;
         }
         
         .layer-service {
-            top: 300px;
-            height: 150px;
+            top: 340px;
+            height: 400px;
         }
         
         .layer-event {
-            top: 470px;
-            height: 120px;
+            top: 760px;
+            height: 140px;
         }
         
         .layer-data {
-            top: 610px;
-            height: 150px;
+            top: 920px;
+            height: 180px;
         }
         
         /* Layer labels */
@@ -133,7 +136,7 @@
             font-size: 0.95rem;
             color: var(--text);
             font-weight: 600;
-            background-color: #fff;
+            background-color: rgba(255, 255, 255, 0.9);
             border: 1px solid #e5e7eb;
             border-radius: 4px;
             padding: 3px 8px;
@@ -198,6 +201,30 @@
         
         .domain-box:hover {
             border-color: var(--domain-border-hover);
+        }
+        
+        .subdomain-box {
+            background-color: var(--subdomain-color);
+            border: 1px solid var(--subdomain-border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            font-size: 0.8rem;
+            padding: 6px 10px;
+            margin: 3px;
+            border-radius: 4px;
+        }
+        
+        .subdomain-box:hover {
+            border-color: var(--subdomain-border-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .withdrawal-types-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 5px;
+            width: 100%;
+            margin-top: 10px;
         }
         
         .non-domain-box {
@@ -348,7 +375,7 @@
         /* Connection labels */
         .connector-label {
             position: absolute;
-            background: white;
+            background: rgba(255, 255, 255, 0.9);
             border-radius: 4px;
             padding: 2px 6px;
             font-size: 0.7rem;
@@ -376,6 +403,19 @@
         .data-label {
             color: var(--data-access-color);
             border-color: var(--data-access-color);
+        }
+        
+        /* Tech badge */
+        .tech-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: #0f766e;
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
         }
         
         /* Legend styles */
@@ -432,12 +472,14 @@
 <body>
     <div class="container">
         <header>
-            <h1>System Architecture - Microservices Design</h1>
-            <p>Event-Driven Architecture with Domain and Non-Domain Services</p>
+            <h1>National Pension System v2.0 - System Architecture</h1>
+            <p>Event-Driven Microservices Architecture - Implemented with Go</p>
         </header>
         
         <div class="diagram-container">
             <div class="diagram">
+                <div class="tech-badge">Golang</div>
+                
                 <!-- Layers -->
                 <div class="layer layer-client"></div>
                 <div class="layer layer-gateway"></div>
@@ -447,184 +489,242 @@
                 
                 <!-- Layer labels -->
                 <div class="layer-label" style="top: 30px;">Client Layer</div>
-                <div class="layer-label" style="top: 170px;">Gateway Layer</div>
-                <div class="layer-label" style="top: 310px;">Service Layer</div>
-                <div class="layer-label" style="top: 480px;">Event Bus</div>
-                <div class="layer-label" style="top: 620px;">Data Layer</div>
+                <div class="layer-label" style="top: 190px;">Gateway Layer</div>
+                <div class="layer-label" style="top: 350px;">Service Layer</div>
+                <div class="layer-label" style="top: 770px;">Event Bus</div>
+                <div class="layer-label" style="top: 930px;">Data Layer</div>
                 
                 <!-- Client Layer -->
-                <div class="box client-box" style="left: 350px; top: 50px; width: 180px; height: 80px;">
-                    <h3>Web Clients</h3>
-                    <p>Browser Applications</p>
+                <div class="box client-box" style="left: 300px; top: 60px; width: 180px; height: 80px;">
+                    <h3>Web Portal</h3>
+                    <p>CRA Interface</p>
                 </div>
                 
-                <div class="box client-box" style="left: 650px; top: 50px; width: 180px; height: 80px;">
-                    <h3>Mobile Clients</h3>
-                    <p>Native Applications</p>
+                <div class="box client-box" style="left: 550px; top: 60px; width: 180px; height: 80px;">
+                    <h3>Mobile App</h3>
+                    <p>NPS Account Access</p>
+                </div>
+                
+                <div class="box client-box" style="left: 800px; top: 60px; width: 180px; height: 80px;">
+                    <h3>POP/Nodal Office</h3>
+                    <p>Administrative Portal</p>
                 </div>
                 
                 <!-- Client to Gateway connections -->
-                <div class="connector rest-connector" style="left: 410px; top: 130px; width: 50px; transform: rotate(90deg);"></div>
-                <div class="arrow-head rest-arrow" style="left: 410px; top: 180px; transform: rotate(0deg);"></div>
-                <div class="connector-label rest-label" style="left: 380px; top: 145px;">REST</div>
+                <div class="connector rest-connector" style="left: 390px; top: 140px; width: 60px; transform: rotate(90deg);"></div>
+                <div class="arrow-head rest-arrow" style="left: 390px; top: 200px; transform: rotate(0deg);"></div>
+                <div class="connector-label rest-label" style="left: 360px; top: 160px;">REST</div>
                 
-                <div class="connector grpc-connector" style="left: 710px; top: 130px; width: 50px; transform: rotate(90deg);"></div>
-                <div class="arrow-head grpc-arrow" style="left: 710px; top: 180px; transform: rotate(0deg);"></div>
-                <div class="connector-label grpc-label" style="left: 740px; top: 145px;">gRPC</div>
+                <div class="connector rest-connector" style="left: 640px; top: 140px; width: 60px; transform: rotate(90deg);"></div>
+                <div class="arrow-head rest-arrow" style="left: 640px; top: 200px; transform: rotate(0deg);"></div>
+                <div class="connector-label rest-label" style="left: 610px; top: 160px;">REST</div>
+                
+                <div class="connector grpc-connector" style="left: 890px; top: 140px; width: 60px; transform: rotate(90deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 890px; top: 200px; transform: rotate(0deg);"></div>
+                <div class="connector-label grpc-label" style="left: 910px; top: 160px;">gRPC</div>
                 
                 <!-- Gateway layer -->
-                <div class="box gateway-box" style="left: 350px; top: 180px; width: 180px; height: 80px;">
-                    <h3>REST API Gateway</h3>
-                    <p>HTTP/JSON</p>
+                <div class="box gateway-box" style="left: 320px; top: 200px; width: 250px; height: 80px;">
+                    <h3>Public API Gateway</h3>
+                    <p>Subscriber/POP HTTP/JSON APIs</p>
                 </div>
                 
-                <div class="box gateway-box" style="left: 650px; top: 180px; width: 180px; height: 80px;">
-                    <h3>gRPC API Gateway</h3>
-                    <p>Protocol Buffers</p>
+                <div class="box gateway-box" style="left: 750px; top: 200px; width: 250px; height: 80px;">
+                    <h3>Internal API Gateway</h3>
+                    <p>Service-to-Service gRPC APIs</p>
                 </div>
                 
                 <!-- Domain services -->
-                <div class="box domain-box" style="left: 200px; top: 320px; width: 180px; height: 100px;">
-                    <h3>User Management</h3>
+                <div class="box domain-box" style="left: 150px; top: 360px; width: 220px; height: 240px;">
+                    <h3>Withdrawal Service</h3>
                     <p>Domain Service</p>
+                    <div class="withdrawal-types-container">
+                        <div class="subdomain-box">Super Annuation</div>
+                        <div class="subdomain-box">Premature Exit</div>
+                        <div class="subdomain-box">Deferment</div>
+                        <div class="subdomain-box">Partial Withdrawal</div>
+                        <div class="subdomain-box">Incapacitation</div>
+                        <div class="subdomain-box">Due to Death</div>
+                        <div class="subdomain-box">Tier 1 Withdrawal</div>
+                        <div class="subdomain-box">Tier 2 Withdrawal</div>
+                    </div>
                 </div>
                 
-                <div class="box domain-box" style="left: 400px; top: 320px; width: 180px; height: 100px;">
-                    <h3>Project Management</h3>
-                    <p>Domain Service</p>
+                <div class="box domain-box" style="left: 400px; top: 360px; width: 200px; height: 120px;">
+                    <h3>Subscriber Management</h3>
+                    <p>Account Management</p>
                 </div>
                 
-                <div class="box domain-box" style="left: 600px; top: 320px; width: 180px; height: 100px;">
-                    <h3>Resource Management</h3>
-                    <p>Domain Service</p>
+                <div class="box domain-box" style="left: 400px; top: 500px; width: 200px; height: 120px;">
+                    <h3>Fund Management</h3>
+                    <p>Portfolio & Investment</p>
+                </div>
+                
+                <div class="box domain-box" style="left: 630px; top: 360px; width: 200px; height: 120px;">
+                    <h3>Contribution Service</h3>
+                    <p>Payment Processing</p>
+                </div>
+                
+                <div class="box domain-box" style="left: 630px; top: 500px; width: 200px; height: 120px;">
+                    <h3>Annuity Service</h3>
+                    <p>ASP Integration</p>
                 </div>
                 
                 <!-- Non-domain services -->
-                <div class="box non-domain-box" style="left: 840px; top: 310px; width: 180px; height: 80px;">
+                <div class="box non-domain-box" style="left: 880px; top: 360px; width: 180px; height: 80px;">
                     <h3>Observability Service</h3>
                     <p>LGTM Stack</p>
                 </div>
                 
-                <div class="box non-domain-box" style="left: 1050px; top: 310px; width: 180px; height: 80px;">
+                <div class="box non-domain-box" style="left: 880px; top: 460px; width: 180px; height: 80px;">
                     <h3>Config Service</h3>
                     <p>etcd + Webhooks</p>
                 </div>
                 
-                <div class="box non-domain-box" style="left: 840px; top: 400px; width: 180px; height: 80px;">
-                    <h3>Cache Service</h3>
-                    <p>Redis</p>
-                </div>
-                
-                <div class="box non-domain-box" style="left: 1050px; top: 400px; width: 180px; height: 80px;">
+                <div class="box non-domain-box" style="left: 880px; top: 560px; width: 180px; height: 80px;">
                     <h3>Audit Service</h3>
-                    <p>System-wide logging</p>
+                    <p>Transaction Logging</p>
                 </div>
                 
                 <!-- Event bus -->
-                <div class="box event-box" style="left: 500px; top: 500px; width: 300px; height: 80px;">
-                    <h3>Messaging Service (Kafka Clusters)</h3>
+                <div class="box event-box" style="left: 500px; top: 790px; width: 300px; height: 80px;">
+                    <h3>Event Messaging (Kafka Clusters)</h3>
                     <p>Event-driven communication</p>
                 </div>
                 
                 <!-- Databases -->
-                <div class="database" style="left: 300px; top: 640px; width: 180px; height: 90px;">
-                    <h3>YugabyteDB</h3>
-                    <p>Distributed SQL</p>
+                <div class="database" style="left: 180px; top: 950px; width: 180px; height: 90px;">
+                    <h3>PostgreSQL</h3>
+                    <p>Transactional Data</p>
                 </div>
                 
-                <div class="database" style="left: 550px; top: 640px; width: 180px; height: 90px;">
+                <div class="database" style="left: 430px; top: 950px; width: 180px; height: 90px;">
                     <h3>Apache Cassandra</h3>
-                    <p>NoSQL Database</p>
+                    <p>Historical Records</p>
                 </div>
                 
-                <div class="database" style="left: 800px; top: 640px; width: 180px; height: 90px;">
+                <div class="database" style="left: 680px; top: 950px; width: 180px; height: 90px;">
                     <h3>Redis</h3>
                     <p>In-memory Cache</p>
                 </div>
                 
-                <!-- REST API Gateway connections -->
-                <!-- To User Management -->
-                <div class="connector rest-connector" style="left: 350px; top: 260px; width: 100px; transform: rotate(135deg);"></div>
-                <div class="arrow-head rest-arrow" style="left: 245px; top: 320px; transform: rotate(-45deg);"></div>
-                <div class="connector-label rest-label" style="left: 280px; top: 270px;">REST</div>
+                <div class="database" style="left: 930px; top: 950px; width: 180px; height: 90px;">
+                    <h3>MongoDB</h3>
+                    <p>Document Store</p>
+                </div>
                 
-                <!-- To Project Management -->
-                <div class="connector rest-connector" style="left: 440px; top: 260px; width: 70px; transform: rotate(90deg);"></div>
-                <div class="arrow-head rest-arrow" style="left: 440px; top: 320px; transform: rotate(0deg);"></div>
-                <div class="connector-label rest-label" style="left: 445px; top: 280px;">REST</div>
+                <!-- Gateway connections to services (Rerouted for clarity) -->
+                <!-- Public API Gateway (REST) to Withdrawal Service -->
+                <div class="connector rest-connector" style="left: 445px; top: 280px; width: 135px; transform: rotate(145deg);"></div>
+                <div class="arrow-head rest-arrow" style="left: 325px; top: 360px; transform: rotate(-35deg);"></div>
+                <div class="connector-label rest-label" style="left: 365px; top: 295px;">REST</div>
                 
-                <!-- To Resource Management -->
-                <div class="connector rest-connector" style="left: 530px; top: 260px; width: 120px; transform: rotate(45deg);"></div>
-                <div class="arrow-head rest-arrow" style="left: 600px; top: 320px; transform: rotate(45deg);"></div>
-                <div class="connector-label rest-label" style="left: 550px; top: 270px;">REST</div>
+                <!-- Public API Gateway (REST) to Subscriber Management -->
+                <div class="connector rest-connector" style="left: 470px; top: 280px; width: 90px; transform: rotate(90deg);"></div>
+                <div class="arrow-head rest-arrow" style="left: 470px; top: 360px; transform: rotate(0deg);"></div>
+                <div class="connector-label rest-label" style="left: 475px; top: 310px;">REST</div>
                 
-                <!-- gRPC API Gateway connections -->
-                <!-- To Resource Management -->
-                <div class="connector grpc-connector" style="left: 680px; top: 260px; width: 80px; transform: rotate(135deg);"></div>
-                <div class="arrow-head grpc-arrow" style="left: 650px; top: 320px; transform: rotate(-45deg);"></div>
-                <div class="connector-label grpc-label" style="left: 650px; top: 270px;">gRPC</div>
+                <!-- Public API Gateway (REST) to Contribution Service -->
+                <div class="connector rest-connector" style="left: 570px; top: 280px; width: 115px; transform: rotate(50deg);"></div>
+                <div class="arrow-head rest-arrow" style="left: 645px; top: 360px; transform: rotate(50deg);"></div>
+                <div class="connector-label rest-label" style="left: 590px; top: 300px;">REST</div>
+
+                <!-- Internal API Gateway (gRPC) to Subscriber Management -->
+                <div class="connector grpc-connector" style="left: 750px; top: 280px; width: 250px; transform: rotate(110deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 590px; top: 360px; transform: rotate(-70deg);"></div>
+                <div class="connector-label grpc-label" style="left: 660px; top: 300px;">gRPC</div>
+
+                <!-- Internal API Gateway (gRPC) to Fund Management -->
+                <div class="connector grpc-connector" style="left: 750px; top: 280px; width: 260px; transform: rotate(100deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 590px; top: 500px; transform: rotate(-80deg);"></div>
+                <div class="connector-label grpc-label" style="left: 650px; top: 380px;">gRPC</div>
+
+                <!-- Internal API Gateway (gRPC) to Contribution Service -->
+                <div class="connector grpc-connector" style="left: 800px; top: 280px; width: 90px; transform: rotate(70deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 710px; top: 360px; transform: rotate(70deg);"></div>
+                <div class="connector-label grpc-label" style="left: 740px; top: 300px;">gRPC</div>
+
+                <!-- Internal API Gateway (gRPC) to Annuity Service -->
+                <div class="connector grpc-connector" style="left: 800px; top: 280px; width: 230px; transform: rotate(80deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 710px; top: 500px; transform: rotate(80deg);"></div>
+                <div class="connector-label grpc-label" style="left: 740px; top: 380px;">gRPC</div>
                 
-                <!-- To Observability Service -->
-                <div class="connector grpc-connector" style="left: 790px; top: 230px; width: 120px; transform: rotate(40deg);"></div>
-                <div class="arrow-head grpc-arrow" style="left: 850px; top: 310px; transform: rotate(50deg);"></div>
-                <div class="connector-label grpc-label" style="left: 800px; top: 250px;">gRPC</div>
+                <!-- Internal API Gateway (gRPC) to Observability Service -->
+                <div class="connector grpc-connector" style="left: 875px; top: 280px; width: 90px; transform: rotate(90deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 875px; top: 360px; transform: rotate(0deg);"></div>
+                <div class="connector-label grpc-label" style="left: 880px; top: 310px;">gRPC</div>
                 
-                <!-- To Cache Service -->
-                <div class="connector grpc-connector" style="left: 750px; top: 260px; width: 150px; transform: rotate(65deg);"></div>
-                <div class="arrow-head grpc-arrow" style="left: 850px; top: 400px; transform: rotate(25deg);"></div>
-                <div class="connector-label grpc-label" style="left: 780px; top: 320px;">gRPC</div>
+                <!-- Internal API Gateway (gRPC) to Config Service -->
+                <div class="connector grpc-connector" style="left: 880px; top: 280px; width: 190px; transform: rotate(80deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 890px; top: 460px; transform: rotate(10deg);"></div>
+                <div class="connector-label grpc-label" style="left: 890px; top: 360px;">gRPC</div>
                 
-                <!-- REST API Gateway to Config Service -->
-                <div class="connector rest-connector" style="left: 530px; top: 200px; width: 520px; transform: rotate(10deg);"></div>
-                <div class="arrow-head rest-arrow" style="left: 1050px; top: 310px; transform: rotate(-80deg);"></div>
-                <div class="connector-label rest-label" style="left: 800px; top: 210px;">REST</div>
+                <!-- Internal API Gateway (gRPC) to Audit Service -->
+                <div class="connector grpc-connector" style="left: 885px; top: 280px; width: 290px; transform: rotate(85deg);"></div>
+                <div class="arrow-head grpc-arrow" style="left: 895px; top: 560px; transform: rotate(5deg);"></div>
+                <div class="connector-label grpc-label" style="left: 900px; top: 410px;">gRPC</div>
+
+                <!-- Services to Event Bus connections (Rerouted for clarity) -->
+                <!-- Withdrawal Service to Event Bus -->
+                <div class="connector event-connector" style="left: 260px; top: 600px; width: 280px; transform: rotate(50deg);"></div>
+                <div class="arrow-head event-arrow" style="left: 500px; top: 790px; transform: rotate(40deg);"></div>
+                <div class="connector-label event-label" style="left: 360px; top: 685px;">Events</div>
                 
-                <!-- REST API Gateway to Audit Service -->
-                <div class="connector rest-connector" style="left: 530px; top: 230px; width: 520px; transform: rotate(30deg);"></div>
-                <div class="arrow-head rest-arrow" style="left: 1050px; top: 400px; transform: rotate(60deg);"></div>
-                <div class="connector-label rest-label" style="left: 730px; top: 290px;">REST</div>
+                <!-- Subscriber Management to Event Bus -->
+                <div class="connector event-connector" style="left: 500px; top: 480px; width: 310px; transform: rotate(90deg);"></div>
+                <div class="arrow-head event-arrow" style="left: 500px; top: 790px; transform: rotate(0deg);"></div>
+                <div class="connector-label event-label" style="left: 505px; top: 625px;">Events</div>
                 
-                <!-- Services to Event Bus connections -->
-                <!-- User Management to Event Bus -->
-                <div class="connector event-connector" style="left: 250px; top: 420px; width: 300px; transform: rotate(25deg);"></div>
-                <div class="arrow-head event-arrow" style="left: 500px; top: 500px; transform: rotate(65deg);"></div>
-                <div class="connector-label event-label" style="left: 350px; top: 450px;">Events</div>
+                <!-- Fund Management to Event Bus -->
+                <div class="connector event-connector" style="left: 500px; top: 620px; width: 170px; transform: rotate(90deg);"></div>
+                <div class="arrow-head event-arrow" style="left: 500px; top: 790px; transform: rotate(0deg);"></div>
+                <div class="connector-label event-label" style="left: 505px; top: 700px;">Events</div>
+
+                <!-- Contribution Service to Event Bus -->
+                <div class="connector event-connector" style="left: 730px; top: 480px; width: 310px; transform: rotate(90deg);"></div>
+                <div class="arrow-head event-arrow" style="left: 730px; top: 790px; transform: rotate(0deg);"></div>
+                <div class="connector-label event-label" style="left: 735px; top: 625px;">Events</div>
+
+                <!-- Annuity Service to Event Bus -->
+                <div class="connector event-connector" style="left: 730px; top: 620px; width: 170px; transform: rotate(90deg);"></div>
+                <div class="arrow-head event-arrow" style="left: 730px; top: 790px; transform: rotate(0deg);"></div>
+                <div class="connector-label event-label" style="left: 735px; top: 700px;">Events</div>
                 
-                <!-- Project Management to Event Bus -->
-                <div class="connector event-connector" style="left: 480px; top: 420px; width: 100px; transform: rotate(70deg);"></div>
-                <div class="arrow-head event-arrow" style="left: 550px; top: 500px; transform: rotate(20deg);"></div>
-                <div class="connector-label event-label" style="left: 490px; top: 450px;">Events</div>
+                <!-- Audit Service to Event Bus -->
+                <div class="connector event-connector" style="left: 880px; top: 640px; width: 230px; transform: rotate(140deg);"></div>
+                <div class="arrow-head event-arrow" style="left: 700px; top: 790px; transform: rotate(-50deg);"></div>
+                <div class="connector-label event-label" style="left: 770px; top: 700px;">Events</div>
                 
-                <!-- Resource Management to Event Bus -->
-                <div class="connector event-connector" style="left: 650px; top: 420px; width: 100px; transform: rotate(110deg);"></div>
-                <div class="arrow-head event-arrow" style="left: 600px; top: 500px; transform: rotate(-20deg);"></div>
-                <div class="connector-label event-label" style="left: 610px; top: 450px;">Events</div>
+                <!-- Services to Database connections (Rerouted for clarity) -->
+                <!-- Withdrawal Service to PostgreSQL -->
+                <div class="connector data-connector" style="left: 260px; top: 600px; width: 350px; transform: rotate(100deg);"></div>
+                <div class="arrow-head data-arrow" style="left: 190px; top: 950px; transform: rotate(-10deg);"></div>
+                <div class="connector-label data-label" style="left: 180px; top: 765px;">Data Access</div>
                 
-                <!-- Non-domain services to Event Bus -->
-                <div class="connector event-connector" style="left: 850px; top: 460px; width: 300px; transform: rotate(155deg);"></div>
-                <div class="arrow-head event-arrow" style="left: 650px; top: 500px; transform: rotate(-65deg);"></div>
-                <div class="connector-label event-label" style="left: 730px; top: 465px;">Events</div>
+                <!-- Subscriber Management to PostgreSQL -->
+                <div class="connector data-connector" style="left: 450px; top: 480px; width: 470px; transform: rotate(100deg);"></div>
+                <div class="arrow-head data-arrow" style="left: 250px; top: 950px; transform: rotate(-10deg);"></div>
+                <div class="connector-label data-label" style="left: 330px; top: 705px;">Data Access</div>
+
+                <!-- Fund Management to Cassandra -->
+                <div class="connector data-connector" style="left: 500px; top: 620px; width: 330px; transform: rotate(90deg);"></div>
+                <div class="arrow-head data-arrow" style="left: 500px; top: 950px; transform: rotate(0deg);"></div>
+                <div class="connector-label data-label" style="left: 470px; top: 775px;">Data Access</div>
                 
-                <!-- Services to Database connections -->
-                <!-- User Management to YugabyteDB -->
-                <div class="connector data-connector" style="left: 250px; top: 420px; width: 100px; transform: rotate(110deg);"></div>
-                <div class="arrow-head data-arrow" style="left: 320px; top: 640px; transform: rotate(-20deg);"></div>
-                <div class="connector-label data-label" style="left: 230px; top: 520px;">Data Access</div>
+                <!-- Contribution Service to Redis -->
+                <div class="connector data-connector" style="left: 730px; top: 480px; width: 470px; transform: rotate(80deg);"></div>
+                <div class="arrow-head data-arrow" style="left: 710px; top: 950px; transform: rotate(10deg);"></div>
+                <div class="connector-label data-label" style="left: 750px; top: 705px;">Data Access</div>
+
+                <!-- Annuity Service to MongoDB -->
+                <div class="connector data-connector" style="left: 730px; top: 620px; width: 330px; transform: rotate(80deg);"></div>
+                <div class="arrow-head data-arrow" style="left: 940px; top: 950px; transform: rotate(10deg);"></div>
+                <div class="connector-label data-label" style="left: 825px; top: 775px;">Data Access</div>
                 
-                <!-- Project Management to Cassandra -->
-                <div class="connector data-connector" style="left: 480px; top: 420px; width: 220px; transform: rotate(90deg);"></div>
-                <div class="arrow-head data-arrow" style="left: 580px; top: 640px; transform: rotate(0deg);"></div>
-                <div class="connector-label data-label" style="left: 490px; top: 520px;">Data Access</div>
-                
-                <!-- Resource Management to Redis -->
-                <div class="connector data-connector" style="left: 680px; top: 420px; width: 170px; transform: rotate(45deg);"></div>
-                <div class="arrow-head data-arrow" style="left: 800px; top: 640px; transform: rotate(45deg);"></div>
-                <div class="connector-label data-label" style="left: 720px; top: 520px;">Data Access</div>
-                
-                <!-- Cache Service to Redis -->
-                <div class="connector data-connector" style="left: 910px; top: 480px; width: 220px; transform: rotate(110deg);"></div>
-                <div class="arrow-head data-arrow" style="left: 850px; top: 640px; transform: rotate(-20deg);"></div>
-                <div class="connector-label data-label" style="left: 860px; top: 560px;">Data Access</div>
+                <!-- Audit Service to MongoDB -->
+                <div class="connector data-connector" style="left: 970px; top: 640px; width: 310px; transform: rotate(90deg);"></div>
+                <div class="arrow-head data-arrow" style="left: 970px; top: 950px; transform: rotate(0deg);"></div>
+                <div class="connector-label data-label" style="left: 980px; top: 785px;">Data Access</div>
             </div>
         </div>
         
@@ -643,6 +743,10 @@
                 <div class="legend-item">
                     <div class="legend-color" style="background-color: var(--domain-color); border: 1px solid var(--domain-border);"></div>
                     <span class="legend-text">Domain Services</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--subdomain-color); border: 1px solid var(--subdomain-border);"></div>
+                    <span class="legend-text">Withdrawal Types</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background-color: var(--non-domain-color); border: 1px solid var(--non-domain-border);"></div>
